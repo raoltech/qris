@@ -1,7 +1,7 @@
 {
   "name": "@raoltech/qris",
   "version": "1.0.0",
-  "description": "Modular ESM QRIS (static to dynamic) library with full TLV parser",
+  "description": "Modular ESM QRIS (static to dynamic) library with full TLV parser, transaction store, webhook, and multi-merchant registry",
   "type": "module",
   "main": "src/index.js",
   "module": "src/index.js",
@@ -10,23 +10,45 @@
     "./tlv": "./src/tlv.js",
     "./crc": "./src/crc.js",
     "./convert": "./src/convert.js",
-    "./render": "./src/render.js"
+    "./render": "./src/render.js",
+    "./transaction": "./src/transaction.js",
+    "./webhook": "./src/webhook.js",
+    "./merchant": "./src/merchant.js",
+    "./decode": "./src/decode.js"
   },
   "scripts": {
-    "test": "node --test"
+    "start": "node src/index.js"
   },
   "keywords": [
     "qris",
     "qris-dinamis",
+    "payment-gateway",
     "payment",
     "tlv",
     "emvco",
+    "indonesia",
+    "dana",
+    "esm",
+    "nodejs",
     "raoltech"
   ],
   "author": "raoltech",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/raoltech/qris.git"
+  },
+  "bugs": {
+    "url": "https://github.com/raoltech/qris/issues"
+  },
+  "homepage": "https://github.com/raoltech/qris#readme",
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://npm.pkg.github.com"
+  },
   "dependencies": {
-    "express": "^5.2.1",
-    "qrcode": "^1.5.4"
+    "qrcode": "^1.5.4",
+    "jimp": "^1.6.0",
+    "jsqr": "^1.4.0"
   }
 }

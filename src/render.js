@@ -22,3 +22,17 @@ export async function toBuffer(qris, opts = {}) {
   });
   return { qrisString: str, buffer };
 }
+
+export async function toImageFile(qris, path, opts = {}) {
+  const { Jimp } = await import("jimp");
+  const str = makeString(qris, opts);
+  const qrBuffer = await QRCode.toBuffer(str, {
+    margin: 2,
+    width: 420,
+    type: "png",
+    ...opts.qrOptions,
+  });
+  const qr = await Jimp.read(qrBuffer);
+  await qr.write(path);
+  return { qrisString: str, path };
+}
