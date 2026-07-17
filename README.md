@@ -196,13 +196,3 @@ src/
   index.js        Public API
 ```
 
-## Development
-
-```bash
-npm install
-npm test
-```
-
-## License
-
-MIT (c) raoltech
