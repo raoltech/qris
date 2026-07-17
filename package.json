@@ -1,0 +1,32 @@
+{
+  "name": "@raoltech/qris",
+  "version": "1.0.0",
+  "description": "Modular ESM QRIS (static to dynamic) library with full TLV parser",
+  "type": "module",
+  "main": "src/index.js",
+  "module": "src/index.js",
+  "exports": {
+    ".": "./src/index.js",
+    "./tlv": "./src/tlv.js",
+    "./crc": "./src/crc.js",
+    "./convert": "./src/convert.js",
+    "./render": "./src/render.js"
+  },
+  "scripts": {
+    "test": "node --test"
+  },
+  "keywords": [
+    "qris",
+    "qris-dinamis",
+    "payment",
+    "tlv",
+    "emvco",
+    "raoltech"
+  ],
+  "author": "raoltech",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^5.2.1",
+    "qrcode": "^1.5.4"
+  }
+}
