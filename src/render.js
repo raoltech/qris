@@ -25,7 +25,7 @@ export async function toBuffer(qris, opts = {}) {
 
 export async function toImageFile(qris, path, opts = {}) {
   const { Jimp } = await import("jimp");
-  const str = makeString(qris, opts);
+  const str = opts.nominal ? makeString(qris, opts) : qris;
   const qrBuffer = await QRCode.toBuffer(str, {
     margin: 2,
     width: 420,
