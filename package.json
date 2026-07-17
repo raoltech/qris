@@ -1,6 +1,6 @@
 {
   "name": "@raoltech/qris",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Modular ESM QRIS (static to dynamic) library with full TLV parser, transaction store, webhook, and multi-merchant registry",
   "type": "module",
   "main": "src/index.js",
