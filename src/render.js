@@ -36,3 +36,15 @@ export async function toImageFile(qris, path, opts = {}) {
   await qr.write(path);
   return { qrisString: str, path };
 }
+
+export async function toJPG(qris, opts = {}) {
+  const str = opts.nominal ? makeString(qris, opts) : qris;
+  const buffer = await QRCode.toBuffer(str, {
+    margin: 2,
+    width: opts.width || 420,
+    type: "jpeg",
+    quality: opts.quality || 92,
+    ...opts.qrOptions,
+  });
+  return { qrisString: str, buffer, mime: "image/jpeg" };
+}
