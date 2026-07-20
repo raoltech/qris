@@ -2,7 +2,7 @@ import QRCode from "qrcode";
 import { makeString } from "./convert.js";
 
 export async function toDataURL(qris, opts = {}) {
-  const str = makeString(qris, opts);
+  const str = opts.nominal ? makeString(qris, opts) : qris;
   const dataUrl = await QRCode.toDataURL(str, {
     margin: 2,
     width: 420,
@@ -13,7 +13,7 @@ export async function toDataURL(qris, opts = {}) {
 }
 
 export async function toBuffer(qris, opts = {}) {
-  const str = makeString(qris, opts);
+  const str = opts.nominal ? makeString(qris, opts) : qris;
   const buffer = await QRCode.toBuffer(str, {
     margin: 2,
     width: 420,
