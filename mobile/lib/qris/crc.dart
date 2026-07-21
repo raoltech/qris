@@ -7,7 +7,7 @@ String toCRC16(String input) {
     }
   }
   final hex = (crc & 0xffff).toRadixString(16).toUpperCase();
-  return hex.length == 3 ? '0' + hex : hex;
+  return hex.padLeft(4, '0');
 }
 
 String pad2(String n) => n.length < 2 ? '0' + n : n;

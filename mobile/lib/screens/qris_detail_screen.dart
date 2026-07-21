@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../qris/index.dart';
+import '../qris/crc.dart';
 import '../services/saved_qris_service.dart';
 import 'detail/bottom_sheets.dart';
 
@@ -23,7 +24,13 @@ class _QrisDetailScreenState extends State<QrisDetailScreen> {
   @override
   void initState() {
     super.initState();
-    _currentQris = widget.qrisString;
+    final p = parseQRIS(widget.qrisString);
+    if (p.crcIsValid == true) {
+      _currentQris = widget.qrisString;
+    } else {
+      final body = widget.qrisString.substring(0, widget.qrisString.length - 4);
+      _currentQris = body + toCRC16(body);
+    }
     _parsed = parseQRIS(_currentQris);
     _checkSaved();
   }
@@ -125,6 +132,10 @@ class _QrisDetailScreenState extends State<QrisDetailScreen> {
             const SizedBox(height: 12),
             _MerchantCard(p: p),
             const SizedBox(height: 12),
+            if (p.merchantAccount != null && p.merchantAccount!.isNotEmpty) ...[
+              _MerchantAccountCard(accounts: p.merchantAccount!),
+              const SizedBox(height: 12),
+            ],
             _TransactionCard(p: p),
             const SizedBox(height: 12),
             _TlvCard(raw: p.raw ?? []),
@@ -244,6 +255,64 @@ class _MerchantCard extends StatelessWidget {
   }
 }
 
+class _MerchantAccountCard extends StatelessWidget {
+  final List<dynamic> accounts;
+  const _MerchantAccountCard({required this.accounts});
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _header(Icons.account_balance, "Akun Merchant"),
+            const SizedBox(height: 12),
+            ...accounts.map((acct) {
+              final m = acct as Map<String, dynamic>;
+              final fields = m['fields'] as List;
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(color: const Color(0xFFFFB84D).withOpacity(0.15), borderRadius: BorderRadius.circular(4)),
+                      child: Text("Tag ${m['tag']}", style: const TextStyle(fontSize: 11, color: Color(0xFFFFB84D), fontWeight: FontWeight.bold)),
+                    ),
+                    const SizedBox(height: 6),
+                    ...fields.map((f) {
+                      final field = f as Map<String, dynamic>;
+                      return Padding(
+                        padding: const EdgeInsets.only(left: 8, bottom: 3),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 28,
+                              padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 2),
+                              decoration: BoxDecoration(color: const Color(0xFF4A6CF7).withOpacity(0.2), borderRadius: BorderRadius.circular(3)),
+                              child: Text(field['tag'], style: const TextStyle(fontSize: 10, fontFamily: 'monospace', color: Color(0xFF4A6CF7))),
+                            ),
+                            const SizedBox(width: 6),
+                            SizedBox(width: 110, child: Text(field['name'] ?? '', style: const TextStyle(fontSize: 11, color: Colors.white54), overflow: TextOverflow.ellipsis)),
+                            Expanded(child: Text(field['value'] ?? '', style: const TextStyle(fontSize: 11, fontFamily: 'monospace'))),
+                          ],
+                        ),
+                      );
+                    }),
+                  ],
+                ),
+              );
+            }),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _TransactionCard extends StatelessWidget {
   final ParsedQRIS p;
   const _TransactionCard({required this.p});
@@ -260,6 +329,7 @@ class _TransactionCard extends StatelessWidget {
             const SizedBox(height: 12),
             _row(Icons.monetization_on, "Mata Uang", p.currency == "360" ? "IDR (Rupiah)" : (p.currency ?? '-')),
             _row(Icons.money, "Nominal", p.amount != null ? "Rp ${_fmt(p.amount!)}" : "Belum diatur (statis)"),
+            _row(Icons.local_offer, "Tip/Fee", (p.feePercent ?? p.feeFixed) != null ? "${p.feePercent ?? p.feeFixed}${p.feePercent != null ? '%' : ''}" : "-"),
             _row(Icons.flag, "Negara", p.country ?? '-'),
             _row(Icons.tag, "Format", p.formatIndicator ?? '-'),
           ],
@@ -279,15 +349,31 @@ class _TransactionCard extends StatelessWidget {
   }
 }
 
-class _TlvCard extends StatelessWidget {
+class _TlvCard extends StatefulWidget {
   final List<TlvEntry> raw;
   const _TlvCard({required this.raw});
 
   @override
+  State<_TlvCard> createState() => _TlvCardState();
+}
+
+class _TlvCardState extends State<_TlvCard> {
+  String _filter = '';
+
+  @override
   Widget build(BuildContext context) {
-    final main = raw.where((e) => !["26", "27", "28", "62"].contains(e.tag)).toList();
-    final accounts = raw.where((e) => ["26", "27", "28"].contains(e.tag)).toList();
-    final data62 = raw.where((e) => e.tag == "62").toList();
+    final raw = widget.raw;
+    final q = _filter.toLowerCase();
+    final filtered = q.isEmpty
+        ? raw
+        : raw.where((e) =>
+            e.tag.toLowerCase().contains(q) ||
+            e.name.toLowerCase().contains(q) ||
+            e.value.toLowerCase().contains(q)).toList();
+
+    final main = filtered.where((e) => !["26", "27", "28", "62"].contains(e.tag)).toList();
+    final accounts = filtered.where((e) => ["26", "27", "28"].contains(e.tag)).toList();
+    final data62 = filtered.where((e) => e.tag == "62").toList();
 
     return Card(
       child: Padding(
@@ -304,17 +390,36 @@ class _TlvCard extends StatelessWidget {
                 Text("${raw.length} entry", style: const TextStyle(fontSize: 12, color: Colors.white38)),
               ],
             ),
+            const SizedBox(height: 8),
+            TextField(
+              style: const TextStyle(fontSize: 12),
+              decoration: InputDecoration(
+                hintText: "Cari tag / nama / nilai...",
+                hintStyle: const TextStyle(color: Colors.white30, fontSize: 12),
+                prefixIcon: const Icon(Icons.search, size: 18),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                isDense: true,
+                suffixIcon: _filter.isNotEmpty
+                    ? IconButton(icon: const Icon(Icons.clear, size: 16), onPressed: () => setState(() => _filter = ''))
+                    : null,
+              ),
+              onChanged: (v) => setState(() => _filter = v),
+            ),
             const SizedBox(height: 10),
-            _table(main),
-            if (accounts.isNotEmpty) ...[
-              const Divider(color: Colors.white12, height: 20),
-              const Text("Merchant Account (26-28)", style: TextStyle(color: Colors.white54, fontSize: 12, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 6), _table(accounts),
-            ],
-            if (data62.isNotEmpty) ...[
-              const Divider(color: Colors.white12, height: 20),
-              const Text("Additional Data (62)", style: TextStyle(color: Colors.white54, fontSize: 12, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 6), _table(data62),
+            if (filtered.isEmpty)
+              const Padding(padding: EdgeInsets.all(8), child: Text("Tidak ada hasil", style: TextStyle(color: Colors.white38, fontSize: 12)))
+            else ...[
+              _table(main),
+              if (accounts.isNotEmpty) ...[
+                const Divider(color: Colors.white12, height: 20),
+                const Text("Merchant Account (26-28)", style: TextStyle(color: Colors.white54, fontSize: 12, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 6), _table(accounts),
+              ],
+              if (data62.isNotEmpty) ...[
+                const Divider(color: Colors.white12, height: 20),
+                const Text("Additional Data (62)", style: TextStyle(color: Colors.white54, fontSize: 12, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 6), _table(data62),
+              ],
             ],
           ],
         ),

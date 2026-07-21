@@ -14,8 +14,8 @@ export function makeString(qris, { nominal, taxtype = "p", fee = "0" } = {}) {
   if (taxtype && fee) {
     tax =
       taxtype === "p"
-        ? "55020357" + pad2(String(fee).length) + fee
-        : "55020256" + pad2(String(fee).length) + fee;
+        ? "55020257" + pad2(String(fee).length) + fee
+        : "55020156" + pad2(String(fee).length) + fee;
   }
 
   amount += tax.length === 0 ? "5802ID" : tax + "5802ID";

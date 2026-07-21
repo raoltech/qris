@@ -10,8 +10,8 @@ String makeString(String qris, {String? nominal, String taxtype = "p", String fe
   final amount = "54" + pad2(nominal.length.toString()) + nominal;
   if (taxtype.isNotEmpty && fee.isNotEmpty) {
     tax = taxtype == "p"
-        ? "55020357" + pad2(fee.length.toString()) + fee
-        : "55020256" + pad2(fee.length.toString()) + fee;
+        ? "55020257" + pad2(fee.length.toString()) + fee
+        : "55020156" + pad2(fee.length.toString()) + fee;
   }
   final glued = tax.isEmpty ? "5802ID" : tax + "5802ID";
   final output = parts[0].trim() + amount + glued + parts[1].trim();

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../qris/index.dart';
+import '../qris/crc.dart';
 import '../services/saved_qris_service.dart';
 import 'qris_detail_screen.dart';
 import 'qris_scan_screen.dart';
@@ -43,9 +44,14 @@ class _QrisInputScreenState extends State<QrisInputScreen> {
       return;
     }
     try {
-      parseQRIS(input);
+      final p = parseQRIS(input);
+      String fixed = input;
+      if (p.crcIsValid != true) {
+        final body = input.substring(0, input.length - 4);
+        fixed = body + toCRC16(body);
+      }
       setState(() => _error = null);
-      Navigator.push(context, MaterialPageRoute(builder: (_) => QrisDetailScreen(qrisString: input)));
+      Navigator.push(context, MaterialPageRoute(builder: (_) => QrisDetailScreen(qrisString: fixed)));
     } catch (e) {
       setState(() => _error = "Gagal parse: $e");
     }

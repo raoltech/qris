@@ -13,7 +13,8 @@ class QrRender {
       gapless: false,
     );
     final pngBytes = await painter.toImageData(size.toDouble(), format: ui.ImageByteFormat.png);
-    final image = img.decodePng(pngBytes!.buffer.asUint8List(pngBytes.offsetInBytes, pngBytes.lengthInBytes));
+    if (pngBytes == null) throw Exception("Failed to render QR image");
+    final image = img.decodePng(pngBytes.buffer.asUint8List(pngBytes.offsetInBytes, pngBytes.lengthInBytes));
     if (image == null) throw Exception("Failed to decode PNG from QR render");
     return Uint8List.fromList(img.encodeJpg(image, quality: quality));
   }
@@ -23,9 +24,11 @@ class QrRender {
       data: data,
       version: QrVersions.auto,
       errorCorrectionLevel: QrErrorCorrectLevel.M,
+      gapless: false,
     );
     final pngBytes = await painter.toImageData(size.toDouble(), format: ui.ImageByteFormat.png);
-    return pngBytes!.buffer.asUint8List(pngBytes.offsetInBytes, pngBytes.lengthInBytes);
+    if (pngBytes == null) throw Exception("Failed to render QR image");
+    return pngBytes.buffer.asUint8List(pngBytes.offsetInBytes, pngBytes.lengthInBytes);
   }
 
   static Future<Uint8List> render(String data, {int size = 480}) => toJpg(data, size: size);
