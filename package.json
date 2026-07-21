@@ -1,0 +1,15 @@
+{
+  "name": "qris-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Monorepo for @raoltech/qris — Node library, Flutter app (TabuQR), and test suite",
+  "scripts": {
+    "test": "node test.mjs"
+  },
+  "dependencies": {
+    "qrcode": "^1.5.4",
+    "jsqr": "^1.4.0",
+    "jimp": "^1.6.0"
+  }
+}

@@ -1,0 +1,42 @@
+name: QRIS Full Test
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout tests repo
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Clone @raoltech/qris module (src)
+        run: |
+          git clone --depth 1 https://github.com/raoltech/qris.git /tmp/qris-src
+          mkdir -p src
+          cp -r /tmp/qris-src/src/* src/
+          echo "Copied src files:"
+          ls src
+
+      - name: Install deps
+        run: npm install
+
+      - name: Run full test (Dana ID)
+        run: npm test
+
+      - name: Upload outputs (JPG/PNG/report)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: qris-test-outputs
+          path: output/
