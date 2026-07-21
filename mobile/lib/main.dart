@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'screens/home_screen.dart';
 import 'screens/qris_input_screen.dart';
-import 'screens/qris_detail_screen.dart';
 import 'screens/about_screen.dart';
 
 void main() => runApp(const TabuqrApp());
@@ -48,12 +47,4 @@ class TabuqrApp extends StatelessWidget {
       },
     );
   }
-}
-
-class QrisDetailRoute extends StatelessWidget {
-  final String qrisString;
-  const QrisDetailRoute(this.qrisString, {super.key});
-
-  @override
-  Widget build(BuildContext context) => QrisDetailScreen(qrisString: qrisString);
 }

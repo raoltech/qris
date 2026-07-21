@@ -37,6 +37,7 @@ class AboutScreen extends StatelessWidget {
                   "• Ubah Merchant — edit nama & kota merchant\n"
                   "• Webhook — konfigurasi callback notifikasi\n"
                   "• Salin & Simpan — copy QRIS atau simpan sebagai JPG"),
+            const SizedBox(height: 16),
             _Section(title: "Library",
               body: "Menggunakan @raoltech/qris — library QRIS modular dengan 25+ fitur termasuk generate, parse, validasi, CRC16, dan TLV."),
           ],

@@ -1,16 +1,12 @@
-import 'dart:io';
-import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:path_provider/path_provider.dart';
 import '../qris/index.dart';
-import '../services/qr_render.dart';
+import '../services/saved_qris_service.dart';
+import 'detail/bottom_sheets.dart';
 
 class QrisDetailScreen extends StatefulWidget {
   final String qrisString;
   const QrisDetailScreen({super.key, required this.qrisString});
-
-  factory QrisDetailScreen.fromParent(String qris) => QrisDetailScreen(qrisString: qris);
 
   @override
   State<QrisDetailScreen> createState() => _QrisDetailScreenState();
@@ -22,294 +18,100 @@ class _QrisDetailScreenState extends State<QrisDetailScreen> {
   int _timeoutMnt = 15;
   String? _webhookUrl;
   String? _webhookSecret;
-  bool _generating = false;
+  bool _isSaved = false;
 
   @override
   void initState() {
     super.initState();
     _currentQris = widget.qrisString;
     _parsed = parseQRIS(_currentQris);
+    _checkSaved();
   }
 
-  void _reparse() {
-    setState(() {
-      _parsed = parseQRIS(_currentQris);
-    });
+  Future<void> _checkSaved() async {
+    final all = await SavedQrisService.getAll();
+    _isSaved = all.any((e) => e.qrisString == _currentQris);
+    if (mounted) setState(() {});
   }
+
+  void _reparse() => setState(() => _parsed = parseQRIS(_currentQris));
 
   void _copyQris() {
     Clipboard.setData(ClipboardData(text: _currentQris));
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("QRIS disalin ke clipboard")));
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("QRIS disalin")));
   }
 
-  void _showGenerateSheet() {
-    final nominalCtl = TextEditingController();
-    final timeoutCtl = TextEditingController(text: _timeoutMnt.toString());
-    Uint8List? qrImage;
-    String? generatedQris;
-    String? error;
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: const Color(0xFF1E293B),
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (ctx) {
-        return StatefulBuilder(builder: (ctx, setSheetState) {
-          return Padding(
-            padding: EdgeInsets.fromLTRB(20, 20, 20, MediaQuery.of(ctx).viewInsets.bottom + 20),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text("Generate QR Pembayaran", style: Theme.of(ctx).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: nominalCtl,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(labelText: "Nominal (Rp)", hintText: "50000"),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: timeoutCtl,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(labelText: "Timeout (menit)", hintText: "15", suffixText: "menit"),
-                ),
-                const SizedBox(height: 16),
-                if (error != null)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: Text(error!, style: const TextStyle(color: Colors.red, fontSize: 13)),
-                  ),
-                if (qrImage != null && generatedQris != null) ...[
-                  Center(
-                    child: Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
-                      child: Image.memory(qrImage!, width: 200, height: 200),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Center(
-                    child: Text(
-                      "Rp ${_formatNominal(int.tryParse(nominalCtl.text) ?? 0)}",
-                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFFFFB84D)),
-                    ),
-                  ),
-                  Center(
-                    child: Text(
-                      "Kadaluwarsa ${_expiryStr(_timeoutMnt)} WIB",
-                      style: const TextStyle(fontSize: 12, color: Colors.white54),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  SelectableText(generatedQris!, style: const TextStyle(fontSize: 9, fontFamily: 'monospace', color: Colors.white54)),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: ElevatedButton.icon(
-                          icon: const Icon(Icons.copy, size: 18),
-                          onPressed: () {
-                            Clipboard.setData(ClipboardData(text: generatedQris!));
-                            ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(content: Text("QRIS disalin")));
-                          },
-                          label: const Text("Salin QRIS"),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: ElevatedButton.icon(
-                          icon: const Icon(Icons.save_alt, size: 18),
-                          onPressed: () async {
-                            await _saveJpg(generatedQris!, qrImage!, ctx);
-                          },
-                          label: const Text("Simpan JPG"),
-                        ),
-                      ),
-                    ],
-                  ),
-                ] else
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton.icon(
-                      icon: _generating
-                          ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
-                          : const Icon(Icons.qr_code, size: 20),
-                      onPressed: _generating
-                          ? null
-                          : () async {
-                              final nominal = int.tryParse(nominalCtl.text);
-                              if (nominal == null || nominal <= 0) {
-                                setSheetState(() => error = "Nominal tidak valid");
-                                return;
-                              }
-                              setSheetState(() {
-                                error = null;
-                                _generating = true;
-                              });
-                              try {
-                                final t = int.tryParse(timeoutCtl.text) ?? 15;
-                                _timeoutMnt = t;
-                                final gen = makeString(_currentQris, nominal: nominal.toString());
-                                final bytes = await QrRender.toJpg(gen);
-                                setSheetState(() {
-                                  qrImage = bytes;
-                                  generatedQris = gen;
-                                  _generating = false;
-                                });
-                              } catch (e) {
-                                setSheetState(() {
-                                  error = "Gagal generate: $e";
-                                  _generating = false;
-                                });
-                              }
-                            },
-                      label: Text(_generating ? "Memproses..." : "GENERATE QR"),
-                    ),
-                  ),
-              ],
-            ),
-          );
-        });
-      },
-    );
-  }
-
-  void _showEditMerchantSheet() {
-    final nameCtl = TextEditingController(text: _parsed.merchantName ?? '');
-    final cityCtl = TextEditingController(text: _parsed.merchantCity ?? '');
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: const Color(0xFF1E293B),
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (ctx) {
-        return Padding(
-          padding: EdgeInsets.fromLTRB(20, 20, 20, MediaQuery.of(ctx).viewInsets.bottom + 20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text("Ubah Merchant", style: Theme.of(ctx).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
-              const SizedBox(height: 16),
-              TextField(controller: nameCtl, decoration: const InputDecoration(labelText: "Nama Merchant")),
-              const SizedBox(height: 12),
-              TextField(controller: cityCtl, decoration: const InputDecoration(labelText: "Kota")),
-              const SizedBox(height: 16),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () {
-                    String q = _currentQris;
-                    if (nameCtl.text.trim().isNotEmpty) q = setMerchantName(q, nameCtl.text.trim());
-                    if (cityCtl.text.trim().isNotEmpty) q = setMerchantCity(q, cityCtl.text.trim());
-                    setState(() {
-                      _currentQris = q;
-                      _parsed = parseQRIS(_currentQris);
-                    });
-                    Navigator.pop(ctx);
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Merchant diperbarui")));
-                  },
-                  child: const Text("Simpan"),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  void _showWebhookSheet() {
-    final urlCtl = TextEditingController(text: _webhookUrl ?? '');
-    final secretCtl = TextEditingController(text: _webhookSecret ?? '');
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: const Color(0xFF1E293B),
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (ctx) {
-        return Padding(
-          padding: EdgeInsets.fromLTRB(20, 20, 20, MediaQuery.of(ctx).viewInsets.bottom + 20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text("Webhook", style: Theme.of(ctx).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
-              const SizedBox(height: 4),
-              Text("Notifikasi pembayaran otomatis saat QRIS dipindai.", style: const TextStyle(color: Colors.white54, fontSize: 13)),
-              const SizedBox(height: 16),
-              TextField(controller: urlCtl, decoration: const InputDecoration(labelText: "Callback URL", hintText: "https://example.com/webhook")),
-              const SizedBox(height: 12),
-              TextField(controller: secretCtl, decoration: const InputDecoration(labelText: "Secret Key", hintText: "opsional")),
-              const SizedBox(height: 16),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () {
-                    setState(() {
-                      _webhookUrl = urlCtl.text.trim();
-                      _webhookSecret = secretCtl.text.trim();
-                    });
-                    Navigator.pop(ctx);
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Webhook disimpan")));
-                  },
-                  child: const Text("Simpan Webhook"),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  Future<void> _saveJpg(String qris, Uint8List bytes, BuildContext ctx) async {
-    try {
-      final dir = await getApplicationDocumentsDirectory();
-      final file = await File('${dir.path}/tabuqr-${DateTime.now().millisecondsSinceEpoch}.jpg').writeAsBytes(bytes);
-      ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(content: Text("Tersimpan: ${file.path}")));
-    } catch (e) {
-      ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(content: Text("Gagal simpan: $e")));
+  Future<void> _toggleSave() async {
+    final all = await SavedQrisService.getAll();
+    final existing = all.where((e) => e.qrisString == _currentQris);
+    if (existing.isNotEmpty) {
+      await SavedQrisService.delete(existing.first.id);
+      if (mounted) setState(() => _isSaved = false);
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Dihapus dari tersimpan")));
+    } else {
+      await SavedQrisService.save(SavedQris(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        alias: _parsed.merchantName ?? 'QRIS ${DateTime.now().millisecondsSinceEpoch.toString().substring(8)}',
+        qrisString: _currentQris,
+        merchantName: _parsed.merchantName ?? '',
+        merchantCity: _parsed.merchantCity ?? '',
+      ));
+      if (mounted) setState(() => _isSaved = true);
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("QRIS tersimpan")));
     }
   }
 
-  String _formatNominal(int n) {
-    final s = n.toString();
-    final b = StringBuffer();
-    for (var i = 0; i < s.length; i++) {
-      if ((s.length - i) % 3 == 0 && i > 0) b.write('.');
-      b.write(s[i]);
-    }
-    return b.toString();
+  void _showGenerateSheet() async {
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: const Color(0xFF1E293B),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (_) => GenerateQrSheet(baseQris: _currentQris, initialTimeout: _timeoutMnt),
+    );
   }
 
-  String _expiryStr(int mnt) {
-    final t = DateTime.now().add(Duration(minutes: mnt));
-    return '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
+  void _showEditMerchantSheet() async {
+    final result = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: const Color(0xFF1E293B),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (_) => EditMerchantSheet(currentQris: _currentQris, merchantName: _parsed.merchantName, merchantCity: _parsed.merchantCity),
+    );
+    if (result != null) {
+      setState(() { _currentQris = result; _parsed = parseQRIS(_currentQris); });
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Merchant diperbarui")));
+    }
+  }
+
+  void _showWebhookSheet() async {
+    final result = await showModalBottomSheet<Map<String, String>>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: const Color(0xFF1E293B),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (_) => WebhookSheet(url: _webhookUrl, secret: _webhookSecret),
+    );
+    if (result != null) {
+      setState(() { _webhookUrl = result['url']; _webhookSecret = result['secret']; });
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(_webhookUrl!.isNotEmpty ? "Webhook disimpan" : "Webhook dikosongkan")));
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final p = _parsed;
-
     return Scaffold(
       appBar: AppBar(
         title: const Text("Detail QRIS"),
         actions: [
-          IconButton(icon: const Icon(Icons.copy), onPressed: _copyQris, tooltip: "Salin QRIS"),
           IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: () {
-              _currentQris = widget.qrisString;
-              _reparse();
-            },
-            tooltip: "Reset ke QRIS awal",
+            icon: Icon(_isSaved ? Icons.bookmark : Icons.bookmark_border, color: _isSaved ? const Color(0xFFFFB84D) : null),
+            onPressed: _toggleSave,
+            tooltip: _isSaved ? "Hapus dari tersimpan" : "Simpan QRIS",
           ),
+          IconButton(icon: const Icon(Icons.copy), onPressed: _copyQris, tooltip: "Salin QRIS"),
         ],
       ),
       body: SingleChildScrollView(
@@ -319,23 +121,21 @@ class _QrisDetailScreenState extends State<QrisDetailScreen> {
           children: [
             _QrisStringCard(qris: _currentQris, onCopy: _copyQris),
             const SizedBox(height: 12),
-            _StatusCard(p: p, theme: theme),
+            _StatusCard(p: p),
             const SizedBox(height: 12),
-            if (p.merchantName != null || p.merchantCity != null)
-              _MerchantCard(p: p, theme: theme),
-            if (p.amount != null || p.initiationMode != null) ...[
-              const SizedBox(height: 12),
-              _TransactionCard(p: p, theme: theme),
-            ],
+            _MerchantCard(p: p),
             const SizedBox(height: 12),
-            _TlvCard(raw: p.raw ?? [], theme: theme),
+            _TransactionCard(p: p),
+            const SizedBox(height: 12),
+            _TlvCard(raw: p.raw ?? []),
             const SizedBox(height: 12),
             _ActionsCard(
               onGenerate: _showGenerateSheet,
               onEditMerchant: _showEditMerchantSheet,
               onWebhook: _showWebhookSheet,
               onCopy: _copyQris,
-              theme: theme,
+              onSave: _toggleSave,
+              isSaved: _isSaved,
             ),
             const SizedBox(height: 40),
           ],
@@ -362,14 +162,19 @@ class _QrisStringCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                const Icon(Icons.qr_code, size: 18, color: Color(0xFFFFB84D)),
+                _iconBox(Icons.qr_code, const Color(0xFFFFB84D)),
                 const SizedBox(width: 8),
                 const Expanded(child: Text("String QRIS", style: TextStyle(fontWeight: FontWeight.bold))),
-                IconButton(icon: const Icon(Icons.copy, size: 16), onPressed: onCopy, tooltip: "Salin"),
+                _copyBtn(onCopy),
               ],
             ),
-            const SizedBox(height: 6),
-            SelectableText(qris, style: const TextStyle(fontSize: 10, fontFamily: 'monospace', color: Colors.white54)),
+            const SizedBox(height: 8),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(color: Colors.white.withOpacity(0.05), borderRadius: BorderRadius.circular(8)),
+              child: SelectableText(qris, style: const TextStyle(fontSize: 10, fontFamily: 'monospace', color: Colors.white60)),
+            ),
           ],
         ),
       ),
@@ -379,8 +184,7 @@ class _QrisStringCard extends StatelessWidget {
 
 class _StatusCard extends StatelessWidget {
   final ParsedQRIS p;
-  final ThemeData theme;
-  const _StatusCard({required this.p, required this.theme});
+  const _StatusCard({required this.p});
 
   @override
   Widget build(BuildContext context) {
@@ -391,32 +195,23 @@ class _StatusCard extends StatelessWidget {
         child: Row(
           children: [
             Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: (valid ? Colors.green : Colors.red).withOpacity(0.2),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Icon(valid ? Icons.check_circle : Icons.warning, color: valid ? Colors.green : Colors.red),
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(color: (valid ? Colors.green : Colors.red).withOpacity(0.15), borderRadius: BorderRadius.circular(10)),
+              child: Icon(valid ? Icons.check_circle : Icons.warning_amber, color: valid ? Colors.green : Colors.red, size: 24),
             ),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(valid ? "QRIS VALID" : "QRIS TIDAK VALID", style: TextStyle(fontWeight: FontWeight.bold, color: valid ? Colors.green : Colors.red)),
-                  const SizedBox(height: 2),
-                  Text("CRC: ${p.crc ?? '-'}${p.crcComputed != null ? ' (hitung: ${p.crcComputed})' : ''}", style: const TextStyle(fontSize: 12, color: Colors.white54)),
+                  Text(valid ? "QRIS Valid" : "QRIS Tidak Valid",
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: valid ? Colors.green : Colors.red)),
+                  Text("CRC: ${p.crc ?? '-'}${p.crcComputed != null && p.crc != p.crcComputed ? ' (seharusnya: ${p.crcComputed})' : ''}",
+                      style: const TextStyle(fontSize: 12, color: Colors.white54)),
                 ],
               ),
             ),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(
-                color: const Color(0xFFFFB84D).withOpacity(0.2),
-                borderRadius: BorderRadius.circular(6),
-              ),
-              child: Text(p.initiationMode ?? '-', style: const TextStyle(fontSize: 12, color: Color(0xFFFFB84D), fontWeight: FontWeight.bold)),
-            ),
+            _badge(p.initiationMode ?? '-'),
           ],
         ),
       ),
@@ -426,8 +221,7 @@ class _StatusCard extends StatelessWidget {
 
 class _MerchantCard extends StatelessWidget {
   final ParsedQRIS p;
-  final ThemeData theme;
-  const _MerchantCard({required this.p, required this.theme});
+  const _MerchantCard({required this.p});
 
   @override
   Widget build(BuildContext context) {
@@ -437,32 +231,14 @@ class _MerchantCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                const Icon(Icons.store, size: 18, color: Color(0xFFFFB84D)),
-                const SizedBox(width: 8),
-                const Text("Merchant", style: TextStyle(fontWeight: FontWeight.bold)),
-              ],
-            ),
-            const SizedBox(height: 10),
-            _infoRow("Nama", p.merchantName ?? '-'),
-            _infoRow("Kota", p.merchantCity ?? '-'),
-            _infoRow("Kode Pos", p.postalCode ?? '-'),
-            _infoRow("Kategori", p.merchantCategoryCode ?? '-'),
+            _header(Icons.store, "Merchant"),
+            const SizedBox(height: 12),
+            _row(Icons.badge, "Nama", p.merchantName ?? '-'),
+            _row(Icons.location_city, "Kota", p.merchantCity ?? '-'),
+            _row(Icons.markunread_mailbox, "Kode Pos", p.postalCode ?? '-'),
+            _row(Icons.category, "Kategori", p.merchantCategoryCode ?? '-'),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _infoRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 4),
-      child: Row(
-        children: [
-          SizedBox(width: 80, child: Text(label, style: const TextStyle(color: Colors.white54, fontSize: 13))),
-          Expanded(child: Text(value, style: const TextStyle(fontSize: 13))),
-        ],
       ),
     );
   }
@@ -470,8 +246,7 @@ class _MerchantCard extends StatelessWidget {
 
 class _TransactionCard extends StatelessWidget {
   final ParsedQRIS p;
-  final ThemeData theme;
-  const _TransactionCard({required this.p, required this.theme});
+  const _TransactionCard({required this.p});
 
   @override
   Widget build(BuildContext context) {
@@ -481,18 +256,12 @@ class _TransactionCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                const Icon(Icons.receipt, size: 18, color: Color(0xFFFFB84D)),
-                const SizedBox(width: 8),
-                const Text("Transaksi", style: TextStyle(fontWeight: FontWeight.bold)),
-              ],
-            ),
-            const SizedBox(height: 10),
-            _infoRow("Mata Uang", p.currency == "360" ? "IDR (360)" : (p.currency ?? '-')),
-            _infoRow("Nominal", p.amount != null ? "Rp ${_fmt(p.amount!)}" : "Belum diisi (statis)"),
-            _infoRow("Negara", p.country ?? '-'),
-            _infoRow("Payload", p.formatIndicator ?? '-'),
+            _header(Icons.receipt, "Transaksi"),
+            const SizedBox(height: 12),
+            _row(Icons.monetization_on, "Mata Uang", p.currency == "360" ? "IDR (Rupiah)" : (p.currency ?? '-')),
+            _row(Icons.money, "Nominal", p.amount != null ? "Rp ${_fmt(p.amount!)}" : "Belum diatur (statis)"),
+            _row(Icons.flag, "Negara", p.country ?? '-'),
+            _row(Icons.tag, "Format", p.formatIndicator ?? '-'),
           ],
         ),
       ),
@@ -508,29 +277,16 @@ class _TransactionCard extends StatelessWidget {
     }
     return b.toString();
   }
-
-  Widget _infoRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 4),
-      child: Row(
-        children: [
-          SizedBox(width: 80, child: Text(label, style: const TextStyle(color: Colors.white54, fontSize: 13))),
-          Expanded(child: Text(value, style: const TextStyle(fontSize: 13))),
-        ],
-      ),
-    );
-  }
 }
 
 class _TlvCard extends StatelessWidget {
   final List<TlvEntry> raw;
-  final ThemeData theme;
-  const _TlvCard({required this.raw, required this.theme});
+  const _TlvCard({required this.raw});
 
   @override
   Widget build(BuildContext context) {
-    final inner = raw.where((e) => e.tag != "26" && e.tag != "62").toList();
-    final additional = raw.where((e) => e.tag == "26" || e.tag == "27" || e.tag == "28").toList();
+    final main = raw.where((e) => !["26", "27", "28", "62"].contains(e.tag)).toList();
+    final accounts = raw.where((e) => ["26", "27", "28"].contains(e.tag)).toList();
     final data62 = raw.where((e) => e.tag == "62").toList();
 
     return Card(
@@ -541,22 +297,24 @@ class _TlvCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                const Icon(Icons.list_alt, size: 18, color: Color(0xFFFFB84D)),
+                _iconBox(Icons.list_alt, const Color(0xFFFFB84D)),
                 const SizedBox(width: 8),
                 const Text("TLV", style: TextStyle(fontWeight: FontWeight.bold)),
+                const Spacer(),
+                Text("${raw.length} entry", style: const TextStyle(fontSize: 12, color: Colors.white38)),
               ],
             ),
             const SizedBox(height: 10),
-            ...inner.map((e) => _tlvRow(e)),
-            if (additional.isNotEmpty) ...[
-              const Divider(color: Colors.white12),
-              const Text("Merchant Account (26-51)", style: TextStyle(color: Colors.white54, fontSize: 12)),
-              ...additional.map((e) => _tlvRow(e)),
+            _table(main),
+            if (accounts.isNotEmpty) ...[
+              const Divider(color: Colors.white12, height: 20),
+              const Text("Merchant Account (26-28)", style: TextStyle(color: Colors.white54, fontSize: 12, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 6), _table(accounts),
             ],
             if (data62.isNotEmpty) ...[
-              const Divider(color: Colors.white12),
-              const Text("Additional Data (62)", style: TextStyle(color: Colors.white54, fontSize: 12)),
-              ...data62.map((e) => _tlvRow(e)),
+              const Divider(color: Colors.white12, height: 20),
+              const Text("Additional Data (62)", style: TextStyle(color: Colors.white54, fontSize: 12, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 6), _table(data62),
             ],
           ],
         ),
@@ -564,25 +322,23 @@ class _TlvCard extends StatelessWidget {
     );
   }
 
-  Widget _tlvRow(TlvEntry e) {
+  Widget _table(List<TlvEntry> entries) => Column(children: entries.map(_row).toList());
+
+  Widget _row(TlvEntry e) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 4),
+      padding: const EdgeInsets.only(bottom: 5),
       child: Row(
         children: [
           Container(
-            width: 32,
-            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-            decoration: BoxDecoration(color: const Color(0xFF4A6CF7).withOpacity(0.3), borderRadius: BorderRadius.circular(4)),
-            child: Text(e.tag, style: const TextStyle(fontSize: 11, fontFamily: 'monospace', fontWeight: FontWeight.bold)),
+            width: 34,
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 3),
+            decoration: BoxDecoration(color: const Color(0xFF4A6CF7).withOpacity(0.25), borderRadius: BorderRadius.circular(4)),
+            child: Text(e.tag, style: const TextStyle(fontSize: 11, fontFamily: 'monospace', fontWeight: FontWeight.bold, color: Color(0xFF4A6CF7))),
           ),
           const SizedBox(width: 8),
-          SizedBox(
-            width: 100,
-            child: Text(e.name, style: const TextStyle(fontSize: 12, color: Colors.white60), overflow: TextOverflow.ellipsis),
-          ),
-          Expanded(
-            child: Text(e.value, style: const TextStyle(fontSize: 11, fontFamily: 'monospace'), overflow: TextOverflow.ellipsis, maxLines: 2),
-          ),
+          SizedBox(width: 100, child: Text(e.name, style: const TextStyle(fontSize: 12, color: Colors.white60), overflow: TextOverflow.ellipsis)),
+          Expanded(child: Text(e.value, style: const TextStyle(fontSize: 11, fontFamily: 'monospace'), overflow: TextOverflow.ellipsis, maxLines: 2)),
+          const SizedBox(width: 4),
           Text("(${e.length})", style: const TextStyle(fontSize: 10, color: Colors.white38)),
         ],
       ),
@@ -595,8 +351,9 @@ class _ActionsCard extends StatelessWidget {
   final VoidCallback onEditMerchant;
   final VoidCallback onWebhook;
   final VoidCallback onCopy;
-  final ThemeData theme;
-  const _ActionsCard({required this.onGenerate, required this.onEditMerchant, required this.onWebhook, required this.onCopy, required this.theme});
+  final VoidCallback onSave;
+  final bool isSaved;
+  const _ActionsCard({required this.onGenerate, required this.onEditMerchant, required this.onWebhook, required this.onCopy, required this.onSave, required this.isSaved});
 
   @override
   Widget build(BuildContext context) {
@@ -606,54 +363,109 @@ class _ActionsCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                const Icon(Icons.touch_app, size: 18, color: Color(0xFFFFB84D)),
-                const SizedBox(width: 8),
-                const Text("Aksi", style: TextStyle(fontWeight: FontWeight.bold)),
-              ],
-            ),
+            _header(Icons.touch_app, "Aksi"),
             const SizedBox(height: 14),
-            _actionBtn(Icons.payments, "Generate QR Pembayaran", "Atur nominal & timeout, hasilkan QR", onGenerate),
-            const Divider(color: Colors.white12, height: 16),
-            _actionBtn(Icons.store, "Ubah Merchant", "Ganti nama & kota merchant", onEditMerchant),
-            const Divider(color: Colors.white12, height: 16),
-            _actionBtn(Icons.webhook, "Webhook", "Konfigurasi callback URL & secret", onWebhook),
-            const Divider(color: Colors.white12, height: 16),
-            _actionBtn(Icons.copy, "Salin QRIS", "Copy string QRIS ke clipboard", onCopy),
+            _actionItem(Icons.payments, "Generate QR", "Nominal + timeout → QR", onGenerate),
+            _divider(),
+            _actionItem(Icons.store, "Ubah Merchant", "Ganti nama & kota", onEditMerchant),
+            _divider(),
+            _actionItem(Icons.webhook, "Webhook", "Callback URL & secret", onWebhook),
+            _divider(),
+            _actionItem(Icons.copy, "Salin QRIS", "Copy string ke clipboard", onCopy),
+            _divider(),
+            _actionItem(isSaved ? Icons.bookmark : Icons.bookmark_border,
+                isSaved ? "Hapus dari Tersimpan" : "Simpan QRIS",
+                isSaved ? "Hapus dari daftar" : "Simpan untuk akses cepat", onSave),
           ],
         ),
       ),
     );
   }
 
-  Widget _actionBtn(IconData icon, String title, String desc, VoidCallback onTap) {
+  Widget _divider() => const Divider(color: Colors.white12, height: 16);
+
+  Widget _actionItem(IconData icon, String title, String desc, VoidCallback onTap) {
     return InkWell(
       borderRadius: BorderRadius.circular(10),
       onTap: onTap,
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 6),
+        padding: const EdgeInsets.symmetric(vertical: 4),
         child: Row(
           children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(color: const Color(0xFF4A6CF7).withOpacity(0.2), borderRadius: BorderRadius.circular(8)),
-              child: Icon(icon, size: 20, color: const Color(0xFF4A6CF7)),
-            ),
+            _iconBox(icon, const Color(0xFF4A6CF7)),
             const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                  Text(desc, style: const TextStyle(fontSize: 11, color: Colors.white54)),
-                ],
-              ),
-            ),
-            const Icon(Icons.chevron_right, color: Colors.white38),
+            Expanded(child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                Text(desc, style: const TextStyle(fontSize: 11, color: Colors.white54)),
+              ],
+            )),
+            const Icon(Icons.chevron_right, color: Colors.white24),
           ],
         ),
       ),
     );
   }
+}
+
+// ─── HELPERS ───
+
+Widget _iconBox(IconData icon, Color color) {
+  return Container(
+    padding: const EdgeInsets.all(6),
+    decoration: BoxDecoration(color: color.withOpacity(0.2), borderRadius: BorderRadius.circular(6)),
+    child: Icon(icon, size: 16, color: color),
+  );
+}
+
+Widget _copyBtn(VoidCallback onCopy) {
+  return InkWell(
+    borderRadius: BorderRadius.circular(6),
+    onTap: onCopy,
+    child: Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(color: const Color(0xFF4A6CF7).withOpacity(0.2), borderRadius: BorderRadius.circular(6)),
+      child: const Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.copy, size: 14, color: Color(0xFF4A6CF7)),
+          SizedBox(width: 4),
+          Text("Salin", style: TextStyle(fontSize: 12, color: Color(0xFF4A6CF7))),
+        ],
+      ),
+    ),
+  );
+}
+
+Widget _header(IconData icon, String title) {
+  return Row(
+    children: [
+      _iconBox(icon, const Color(0xFFFFB84D)),
+      const SizedBox(width: 8),
+      Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
+    ],
+  );
+}
+
+Widget _row(IconData icon, String label, String value) {
+  return Padding(
+    padding: const EdgeInsets.only(bottom: 6),
+    child: Row(
+      children: [
+        Icon(icon, size: 16, color: Colors.white38),
+        const SizedBox(width: 8),
+        SizedBox(width: 70, child: Text(label, style: const TextStyle(color: Colors.white54, fontSize: 13))),
+        Expanded(child: Text(value, style: const TextStyle(fontSize: 13))),
+      ],
+    ),
+  );
+}
+
+Widget _badge(String text) {
+  return Container(
+    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+    decoration: BoxDecoration(color: const Color(0xFFFFB84D).withOpacity(0.15), borderRadius: BorderRadius.circular(6)),
+    child: Text(text, style: const TextStyle(fontSize: 12, color: Color(0xFFFFB84D), fontWeight: FontWeight.bold)),
+  );
 }
