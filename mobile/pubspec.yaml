@@ -1,5 +1,5 @@
-name: qris_tester
-description: Android app to test @raoltech/qris (QRIS modular) features with a real Dana QRIS, build APK via GitHub Actions.
+name: tabuqr
+description: Aplikasi QRIS multifungsi — parse, generate, webhook, timeout.
 publish_to: 'none'
 version: 1.0.0+1
 
@@ -10,14 +10,11 @@ dependencies:
   flutter:
     sdk: flutter
   cupertino_icons: ^1.0.6
-  provider: ^6.1.1
   path_provider: ^2.1.2
   permission_handler: ^11.3.0
   qr_flutter: ^4.1.0
   image: ^4.1.3
-  package_info_plus: ^8.0.2
   share_plus: ^7.2.1
-  shared_preferences: ^2.2.2
 
 dev_dependencies:
   flutter_test:

@@ -1,14 +1,13 @@
 import 'package:flutter/material.dart';
 import 'screens/home_screen.dart';
-import 'screens/generator_screen.dart';
-import 'screens/parse_screen.dart';
-import 'screens/tabungan_screen.dart';
+import 'screens/qris_input_screen.dart';
+import 'screens/qris_detail_screen.dart';
 import 'screens/about_screen.dart';
 
-void main() => runApp(const QrisApp());
+void main() => runApp(const TabuqrApp());
 
-class QrisApp extends StatelessWidget {
-  const QrisApp({super.key});
+class TabuqrApp extends StatelessWidget {
+  const TabuqrApp({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -44,39 +43,17 @@ class QrisApp extends StatelessWidget {
       ),
       routes: {
         '/': (_) => const HomeScreen(),
-        '/qr-menu': (_) => const QrMenuScreen(),
-        '/tabungan': (_) => const TabunganScreen(),
+        '/input': (_) => const QrisInputScreen(),
         '/about': (_) => const AboutScreen(),
       },
     );
   }
 }
 
-class QrMenuScreen extends StatefulWidget {
-  const QrMenuScreen({super.key});
+class QrisDetailRoute extends StatelessWidget {
+  final String qrisString;
+  const QrisDetailRoute(this.qrisString, {super.key});
 
   @override
-  State<QrMenuScreen> createState() => _QrMenuScreenState();
-}
-
-class _QrMenuScreenState extends State<QrMenuScreen> {
-  int _idx = 0;
-  final _pages = const [GeneratorScreen(), ParseScreen()];
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text("Fitur QRIS")),
-      body: _pages[_idx],
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _idx,
-        onTap: (i) => setState(() => _idx = i),
-        selectedItemColor: const Color(0xFFFFB84D),
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.qr_code), label: "Generator"),
-          BottomNavigationBarItem(icon: Icon(Icons.visibility), label: "Parse"),
-        ],
-      ),
-    );
-  }
+  Widget build(BuildContext context) => QrisDetailScreen(qrisString: qrisString);
 }

@@ -5,43 +5,32 @@ class HomeScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final menus = [
       _MenuItem(
         icon: Icons.qr_code_2,
-        label: "Fitur QRIS",
-        desc: "Parse, generate & test QRIS",
-        route: '/qr-menu',
+        label: "QRIS Tools",
+        desc: "Parse, edit, generate QR, webhook & timeout",
+        route: '/input',
         color: const Color(0xFF4A6CF7),
-      ),
-      _MenuItem(
-        icon: Icons.account_balance_wallet,
-        label: "Tabungan",
-        desc: "Atur target, catat & lacak tabungan",
-        route: '/tabungan',
-        color: const Color(0xFFFFB84D),
       ),
       _MenuItem(
         icon: Icons.info_outline,
         label: "Tentang",
-        desc: "Penjelasan tentang aplikasi ini",
+        desc: "Penjelasan tentang TabuQR",
         route: '/about',
         color: const Color(0xFFA78BFA),
       ),
     ];
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text("TabuQR"),
-        centerTitle: true,
-      ),
+      appBar: AppBar(title: const Text("TabuQR"), centerTitle: true),
       body: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const SizedBox(height: 8),
-            Text("Menu", style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold)),
+            Text("Menu", style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold)),
             const SizedBox(height: 16),
             Expanded(
               child: GridView.builder(
