@@ -354,7 +354,7 @@ class _ProgressCard extends StatelessWidget {
                 value: progress,
                 minHeight: 12,
                 backgroundColor: Colors.white12,
-                valueColor: const AlwaysStoppedAnimation<Color>(0xFF4A6CF7),
+                valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF4A6CF7)),
               ),
             ),
             const SizedBox(height: 12),

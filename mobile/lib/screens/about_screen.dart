@@ -35,7 +35,7 @@ class AboutScreen extends StatelessWidget {
             const SizedBox(height: 16),
             _Section(title: "Fitur QRIS",
               body: "• Parse — melihat struktur TLV dari QRIS string\n"
-                  "• Generate — membuat QR code dengan nominal custom",
+                  "• Generate — membuat QR code dengan nominal custom"),
             const SizedBox(height: 16),
             _Section(title: "Fitur Tabungan",
               body: "• Atur data merchant QRIS\n"

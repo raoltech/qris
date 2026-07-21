@@ -42,7 +42,9 @@ jobs:
 
       - name: Scaffold Android platform
         working-directory: /tmp/qris_tester
-        run: flutter create --org com.raoltech --platform android .
+        run: |
+          flutter create --org com.raoltech --platform android .
+          rm -f test/widget_test.dart
 
       - name: Analyze (non-fatal)
         working-directory: /tmp/qris_tester
