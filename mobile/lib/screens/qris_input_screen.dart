@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import '../qris/index.dart';
 import '../services/saved_qris_service.dart';
 import 'qris_detail_screen.dart';
+import 'qris_scan_screen.dart';
 
 class QrisInputScreen extends StatefulWidget {
   const QrisInputScreen({super.key});
@@ -127,8 +128,9 @@ class _QrisInputScreenState extends State<QrisInputScreen> {
                 ),
                 const SizedBox(width: 8),
                 OutlinedButton.icon(
-                  onPressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Fitur scan kamera akan segera hadir")));
+                  onPressed: () async {
+                    final result = await Navigator.push<String>(context, MaterialPageRoute(builder: (_) => const QrisScanScreen()));
+                    if (result != null) _parse(qris: result);
                   },
                   icon: const Icon(Icons.camera_alt, size: 18),
                   label: const Text("Scan"),
