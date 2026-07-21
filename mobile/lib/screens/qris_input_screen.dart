@@ -40,7 +40,7 @@ class _QrisInputScreenState extends State<QrisInputScreen> {
   void _paste() async {
     final data = await Clipboard.getData(Clipboard.kTextPlain);
     if (data?.text != null) {
-      _ctl.text = data.text!;
+      _ctl.text = data?.text ?? '';
       _parse();
     }
   }

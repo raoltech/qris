@@ -79,7 +79,7 @@ class _QrisDetailScreenState extends State<QrisDetailScreen> {
                 if (error != null)
                   Padding(
                     padding: const EdgeInsets.only(bottom: 12),
-                    child: Text(error, style: const TextStyle(color: Colors.red, fontSize: 13)),
+                    child: Text(error!, style: const TextStyle(color: Colors.red, fontSize: 13)),
                   ),
                 if (qrImage != null && generatedQris != null) ...[
                   Center(
