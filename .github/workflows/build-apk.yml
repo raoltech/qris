@@ -3,8 +3,12 @@ name: Build APK
 on:
   push:
     branches: [main, master]
+    paths:
+      - 'mobile/**'
   pull_request:
     branches: [main, master]
+    paths:
+      - 'mobile/**'
   workflow_dispatch:
 
 jobs:
@@ -14,10 +18,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Copy to valid project dir name
+      - name: Copy mobile to build dir
         run: |
           rm -rf /tmp/qris_tester
-          cp -r "$GITHUB_WORKSPACE" /tmp/qris_tester
+          cp -r "$GITHUB_WORKSPACE/mobile" /tmp/qris_tester
 
       - name: Setup Java
         uses: actions/setup-java@v4

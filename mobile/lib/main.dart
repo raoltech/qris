@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'screens/home_screen.dart';
-import 'screens/tests_screen.dart';
 import 'screens/generator_screen.dart';
 import 'screens/parse_screen.dart';
 import 'screens/tabungan_screen.dart';
@@ -62,7 +61,7 @@ class QrMenuScreen extends StatefulWidget {
 
 class _QrMenuScreenState extends State<QrMenuScreen> {
   int _idx = 0;
-  final _pages = const [TestsScreen(), GeneratorScreen(), ParseScreen()];
+  final _pages = const [GeneratorScreen(), ParseScreen()];
 
   @override
   Widget build(BuildContext context) {
@@ -74,7 +73,6 @@ class _QrMenuScreenState extends State<QrMenuScreen> {
         onTap: (i) => setState(() => _idx = i),
         selectedItemColor: const Color(0xFFFFB84D),
         items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.checklist), label: "Tests"),
           BottomNavigationBarItem(icon: Icon(Icons.qr_code), label: "Generator"),
           BottomNavigationBarItem(icon: Icon(Icons.visibility), label: "Parse"),
         ],
