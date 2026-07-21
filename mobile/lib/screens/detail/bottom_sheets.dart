@@ -129,7 +129,7 @@ class _GenerateQrSheetState extends State<GenerateQrSheet> {
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(color: Colors.red.withOpacity(0.15), borderRadius: BorderRadius.circular(6)),
                 child: Text("Kadaluwarsa ${_expiry()} WIB",
-                    style: const TextStyle(fontSize: 13, color: Colors.red.shade300, fontWeight: FontWeight.bold)),
+                    style: TextStyle(fontSize: 13, color: Colors.red.shade300, fontWeight: FontWeight.bold)),
               ),
             ),
             const SizedBox(height: 8),
