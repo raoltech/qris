@@ -1,5 +1,7 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:image_picker/image_picker.dart';
 
 class QrisScanScreen extends StatefulWidget {
   const QrisScanScreen({super.key});
@@ -28,6 +30,24 @@ class _QrisScanScreenState extends State<QrisScanScreen> {
     Navigator.pop(context, raw);
   }
 
+  Future<void> _pickFromGallery() async {
+    final picker = ImagePicker();
+    final xfile = await picker.pickImage(source: ImageSource.gallery);
+    if (xfile == null) return;
+    try {
+      final capture = await _controller.analyzeImage(xfile.path);
+      if (capture == null) throw "Tidak ada QR terdeteksi";
+      final barcode = capture.barcodes.firstOrNull;
+      final raw = barcode?.rawValue;
+      if (raw == null || raw.length < 20) throw "QR tidak valid";
+      if (mounted) Navigator.pop(context, raw);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Gagal baca QR: $e")));
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -35,9 +55,9 @@ class _QrisScanScreenState extends State<QrisScanScreen> {
         title: const Text("Scan QRIS"),
         actions: [
           IconButton(
-            icon: const Icon(Icons.flash_on),
-            onPressed: () => _controller.toggleTorch(),
-            tooltip: "Flash",
+            icon: const Icon(Icons.photo_library),
+            onPressed: _pickFromGallery,
+            tooltip: "Pilih dari Galeri",
           ),
           IconButton(
             icon: const Icon(Icons.flip_camera_android),
